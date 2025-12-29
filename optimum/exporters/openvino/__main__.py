@@ -50,6 +50,8 @@ from .utils import (
     patch_qwenvl_configs,
 )
 
+from optimum.exporters.openvino.funasr.build_and_export_paraformer import build_model, export
+import openvino as ov
 
 if is_transformers_version(">=", "4.55"):
     from transformers import Mxfp4Config
@@ -85,6 +87,8 @@ def infer_task(
     if task == "auto":
         if library_name == "open_clip":
             task = "zero-shot-image-classification"
+        elif library_name == "paraformer":
+            task = "paraformer-auto-speech-recognition"
         else:
             try:
                 task = TasksManager._infer_task_from_model_name_or_path(
@@ -464,6 +468,12 @@ def main_export(
     try:
         if library_name == "open_clip":
             model = _OpenClipForZeroShotImageClassification.from_pretrained(model_name_or_path, cache_dir=cache_dir)
+        elif library_name == "paraformer":
+            model, kwargs = build_model(model=model_name_or_path, hub="hf")
+            model_dir, model_jit_scripts = export(model, kwargs, type="torchscript", quantize=False, device="cpu")
+            ovm = ov.convert_model(model_jit_scripts, input=[([-1, -1, -1], torch.float32), ([-1], torch.int32)])
+            ov.serialize(ovm, model_dir + "/ov_models/openvino_model.xml")
+            return model, kwargs
         else:
             # remote code models like phi3_v internvl2, minicpmv, internvl2, nanollava, maira2 should be loaded using AutoModelForCausalLM and not AutoModelForImageTextToText
             # TODO: use config.auto_map to load remote code models instead (for other models we can directly use config.architectures)
