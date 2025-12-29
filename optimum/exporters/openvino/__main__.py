@@ -469,10 +469,10 @@ def main_export(
         if library_name == "open_clip":
             model = _OpenClipForZeroShotImageClassification.from_pretrained(model_name_or_path, cache_dir=cache_dir)
         elif library_name == "paraformer":
-            model, kwargs = build_model(model=model_name_or_path, hub="hf")
-            model_dir, model_jit_scripts = export(model, kwargs, type="torchscript", quantize=False, device="cpu")
+            model, kwargs = build_model(model=model_name_or_path, device=device)
+            model_dir, model_jit_scripts = export(model, kwargs, type="torchscript", quantize=False, device=device)
             ovm = ov.convert_model(model_jit_scripts, input=[([-1, -1, -1], torch.float32), ([-1], torch.int32)])
-            ov.serialize(ovm, model_dir + "/ov_models/openvino_model.xml")
+            ov.serialize(ovm, str(output) + "/ov_models/openvino_model.xml")
             return model, kwargs
         else:
             # remote code models like phi3_v internvl2, minicpmv, internvl2, nanollava, maira2 should be loaded using AutoModelForCausalLM and not AutoModelForImageTextToText

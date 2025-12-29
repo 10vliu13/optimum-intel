@@ -233,8 +233,6 @@ def download_model(**kwargs):
 def build_model(**kwargs):
 	assert "model" in kwargs
 	kwargs = download_model(**kwargs)
-	device = "cpu"
-	kwargs["device"] = device
 	torch.set_num_threads(kwargs.get("ncpu", 4))
 
 	# build tokenizer
@@ -269,14 +267,11 @@ def build_model(**kwargs):
 		model.to(torch.float16)
 	elif kwargs.get("bf16", False):
 		model.to(torch.bfloat16)
-	model.to(device)
+	model.to(kwargs["device"])
 
 	return model, kwargs
 
 def export(model, kwargs, input=None, **cfg):
-	# device = cfg.get("device", "cpu")
-	# deep_update(kwargs, cfg)
-	# kwargs["device"] = device
 	del kwargs["model"]
 	model.eval()
 
