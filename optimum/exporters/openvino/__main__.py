@@ -50,7 +50,7 @@ from .utils import (
     patch_qwenvl_configs,
 )
 
-from optimum.exporters.openvino.funasr.build_and_export_paraformer import build_model, export
+from optimum.exporters.openvino.modeling_paraformer import build_model, export
 import openvino as ov
 
 if is_transformers_version(">=", "4.55"):
