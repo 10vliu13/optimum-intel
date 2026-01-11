@@ -50,6 +50,7 @@ from .utils import (
     patch_qwenvl_configs,
 )
 
+import os
 from optimum.exporters.openvino.modeling_paraformer import build_model, export
 import openvino as ov
 
@@ -470,9 +471,21 @@ def main_export(
             model = _OpenClipForZeroShotImageClassification.from_pretrained(model_name_or_path, cache_dir=cache_dir)
         elif library_name == "paraformer":
             model, kwargs = build_model(model=model_name_or_path, device=device)
+
             model_dir, model_jit_scripts = export(model, kwargs, type="torchscript", quantize=False, device=device)
             ovm = ov.convert_model(model_jit_scripts, input=[([-1, -1, -1], torch.float32), ([-1], torch.int32)])
             ov.serialize(ovm, str(output) + "/ov_models/openvino_model.xml")
+
+            # Copy model other parafmeter files
+            PARAFORMER_PARAM_FILES = ['am.mvn', 'config.yaml', 'configuration.json', 'seg_dict', 'tokens.json']
+            target_dir = str(output) + "/ov_models"
+            os.makedirs(target_dir, exist_ok=True)
+            for file_name in PARAFORMER_PARAM_FILES:
+                source_file = os.path.join(model_dir, file_name)
+                target_file = os.path.join(target_dir, file_name)
+                if os.path.exists(source_file):
+                    shutil.copy2(source_file, target_file)
+
             return model, kwargs
         else:
             # remote code models like phi3_v internvl2, minicpmv, internvl2, nanollava, maira2 should be loaded using AutoModelForCausalLM and not AutoModelForImageTextToText
