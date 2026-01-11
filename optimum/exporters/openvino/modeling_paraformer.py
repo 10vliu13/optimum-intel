@@ -10,9 +10,7 @@ import json
 import copy
 from omegaconf import OmegaConf, DictConfig, ListConfig
 
-###############
-############### Paraformer model utils area
-###############
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/utils/repeat.py#L14 (Apache 2.0)
 class MultiSequential(torch.nn.Sequential):
     """Multi-input multi-output torch.nn.Sequential."""
 
@@ -48,6 +46,7 @@ def repeat(N, fn, layer_drop_rate=0.0):
     """
     return MultiSequential(*[fn(n) for n in range(N)], layer_drop_rate=layer_drop_rate)
 
+# https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/positionwise_feed_forward.py#L14 (Apache 2.0)
 class PositionwiseFeedForward(torch.nn.Module):
     """Positionwise feed forward layer.
 
@@ -70,12 +69,14 @@ class PositionwiseFeedForward(torch.nn.Module):
         """Forward function."""
         return self.w_2(self.dropout(self.activation(self.w_1(x))))
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/embedding.py#L416 (Apache 2.0)
 class StreamSinusoidalPositionEncoder(torch.nn.Module):
     """ """
 
     def __int__(self, d_model=80, dropout_rate=0.1):
         pass
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/embedding.py#L383 (Apache 2.0)
 class SinusoidalPositionEncoder(torch.nn.Module):
     """ """
 
@@ -128,6 +129,7 @@ def _pre_hook(
     if k in state_dict:
         state_dict.pop(k)
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/embedding.py#L36 (Apache 2.0)
 class PositionalEncoding(torch.nn.Module):
     """Positional encoding.
 
@@ -172,6 +174,7 @@ class PositionalEncoding(torch.nn.Module):
         pe = pe.unsqueeze(0)
         self.pe = pe.to(device=x.device, dtype=x.dtype)
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/transformer/layer_norm.py#L13 (Apache 2.0)
 class LayerNorm(torch.nn.LayerNorm):
     """Layer normalization module.
 
@@ -185,50 +188,6 @@ class LayerNorm(torch.nn.LayerNorm):
         """Construct an LayerNorm object."""
         super(LayerNorm, self).__init__(nout, eps=1e-12)
         self.dim = dim
-
-class PositionalEncoding(torch.nn.Module):
-    """Positional encoding.
-
-    Args:
-        d_model (int): Embedding dimension.
-        dropout_rate (float): Dropout rate.
-        max_len (int): Maximum input length.
-        reverse (bool): Whether to reverse the input position. Only for
-        the class LegacyRelPositionalEncoding. We remove it in the current
-        class RelPositionalEncoding.
-    """
-
-    def __init__(self, d_model, dropout_rate, max_len=5000, reverse=False):
-        """Construct an PositionalEncoding object."""
-        super(PositionalEncoding, self).__init__()
-        self.d_model = d_model
-        self.reverse = reverse
-        self.xscale = math.sqrt(self.d_model)
-        self.dropout = torch.nn.Dropout(p=dropout_rate)
-        self.pe = None
-        self.extend_pe(torch.tensor(0.0).expand(1, max_len))
-        self._register_load_state_dict_pre_hook(_pre_hook)
-
-    def extend_pe(self, x):
-        """Reset the positional encodings."""
-        if self.pe is not None:
-            if self.pe.size(1) >= x.size(1):
-                if self.pe.dtype != x.dtype or self.pe.device != x.device:
-                    self.pe = self.pe.to(dtype=x.dtype, device=x.device)
-                return
-        pe = torch.zeros(x.size(1), self.d_model)
-        if self.reverse:
-            position = torch.arange(x.size(1) - 1, -1, -1.0, dtype=torch.float32).unsqueeze(1)
-        else:
-            position = torch.arange(0, x.size(1), dtype=torch.float32).unsqueeze(1)
-        div_term = torch.exp(
-            torch.arange(0, self.d_model, 2, dtype=torch.float32)
-            * -(math.log(10000.0) / self.d_model)
-        )
-        pe[:, 0::2] = torch.sin(position * div_term)
-        pe[:, 1::2] = torch.cos(position * div_term)
-        pe = pe.unsqueeze(0)
-        self.pe = pe.to(device=x.device, dtype=x.dtype)
 
 class BaseTransformerDecoder(nn.Module):
     """Base class of Transfomer decoder module.
@@ -307,12 +266,7 @@ class sequence_mask(nn.Module):
         return mask.type(dtype).to(device) if device is not None else mask.type(dtype)
 
 
-
-
-
-###############
-############### Paraformer multi head attention area
-###############
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/multihead_att.py#L67
 def preprocess_for_attn(x, mask, cache, pad_fn, kernel_size):
     x = x * mask
     x = x.transpose(1, 2)
@@ -330,7 +284,7 @@ def preprocess_for_attn(x, mask, cache, pad_fn, kernel_size):
 
 #     torch.fx.wrap("preprocess_for_attn")
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L140 (Apache 2.0)
 class MultiHeadedAttentionSANM(nn.Module):
     """Multi-Head Attention layer.
 
@@ -543,7 +497,7 @@ class MultiHeadedAttentionSANM(nn.Module):
         att_outs = self.forward_attention(v_h, scores, None)
         return att_outs + fsmn_memory, cache
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L353 (Apache 2.0)
 class MultiHeadedAttentionSANMExport(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -602,6 +556,7 @@ class MultiHeadedAttentionSANMExport(nn.Module):
         context_layer = context_layer.view(new_context_layer_shape)
         return self.linear_out(context_layer)  # (batch, time1, d_model)
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L471 (Apache 2.0)
 class MultiHeadedAttentionSANMDecoder(nn.Module):
     """Multi-Head Attention layer.
 
@@ -680,7 +635,7 @@ class MultiHeadedAttentionSANMDecoder(nn.Module):
             x = x * mask
         return x, cache
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L550 (Apache 2.0)
 class MultiHeadedAttentionSANMDecoderExport(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -698,7 +653,7 @@ class MultiHeadedAttentionSANMDecoderExport(nn.Module):
         x = x * mask
         return x, cache
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L568 (Apache 2.0)
 class MultiHeadedAttentionCrossAtt(nn.Module):
     """Multi-Head Attention layer.
 
@@ -881,7 +836,7 @@ class MultiHeadedAttentionCrossAtt(nn.Module):
         scores = torch.matmul(q_h, k_h.transpose(-2, -1))
         return self.forward_attention(v_h, scores, None), cache
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/attention.py#L751 (Apache 2.0)
 class MultiHeadedAttentionCrossAttExport(nn.Module):
     def __init__(self, model):
         super().__init__()
@@ -926,11 +881,7 @@ class MultiHeadedAttentionCrossAttExport(nn.Module):
             return self.linear_out(context_layer), attn
         return self.linear_out(context_layer)  # (batch, time1, d_model)
 
-
-
-###############
-############### Paraformer encoder area
-###############
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/encoder.py#L44 (MIT License)
 class EncoderLayerSANM(nn.Module):
     def __init__(
         self,
@@ -1073,6 +1024,7 @@ class EncoderLayerSANM(nn.Module):
 
         return x, cache
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/encoder.py#L188 (MIT License)
 class SANMEncoder(nn.Module):
     """
     Author: Zhifu Gao, Shiliang Zhang, Ming Lei, Ian McLoughlin
@@ -1190,6 +1142,7 @@ class SANMEncoder(nn.Module):
     def output_size(self) -> int:
         return self._output_size
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/encoder.py#L487 (MIT License)
 class EncoderLayerSANMExport(nn.Module):
     def __init__(
         self,
@@ -1218,6 +1171,7 @@ class EncoderLayerSANMExport(nn.Module):
 
         return x, mask
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/encoder.py#L518 (MIT License)
 class SANMEncoderExport(nn.Module):
     def __init__(
         self,
@@ -1292,9 +1246,7 @@ class SANMEncoderExport(nn.Module):
 
         return xs_pad, speech_lengths
 
-###############
-############### Paraformer decoder area
-###############
+#Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/sanm/positionwise_feed_forward.py#L12
 class PositionwiseFeedForwardDecoderSANM(torch.nn.Module):
     """Positionwise feed forward layer.
 
@@ -1318,7 +1270,7 @@ class PositionwiseFeedForwardDecoderSANM(torch.nn.Module):
         """Forward function."""
         return self.w_2(self.norm(self.dropout(self.activation(self.w_1(x)))))
 
-
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/decoder.py#L26 (MIT License)
 class DecoderLayerSANM(torch.nn.Module):
     """Single decoder layer module.
 
@@ -1371,7 +1323,7 @@ class DecoderLayerSANM(torch.nn.Module):
         self.reserve_attn = False
         self.attn_mat = []
 
-############### ParaformerSANMDecoder main class
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/decoder.py#L225 (MIT License)
 class ParaformerSANMDecoder(BaseTransformerDecoder):
     """
     Author: Speech Lab of DAMO Academy, Alibaba Group
@@ -1478,7 +1430,7 @@ class ParaformerSANMDecoder(BaseTransformerDecoder):
         self.tf2torch_tensor_name_prefix_tf = tf2torch_tensor_name_prefix_tf
         self.chunk_multiply_factor = chunk_multiply_factor
 
-############### DecoderLayerSANMExport main class
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/decoder.py#L592 (MIT License)
 class DecoderLayerSANMExport(torch.nn.Module):
 
     def __init__(self, model):
@@ -1510,7 +1462,7 @@ class DecoderLayerSANMExport(torch.nn.Module):
 
         return x, tgt_mask, memory, memory_mask, cache
 
-############### ParaformerSANMDecoderExport main class
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/decoder.py#L641 (MIT License)
 class ParaformerSANMDecoderExport(torch.nn.Module):
     def __init__(self, model, max_seq_len=512, model_name="decoder", onnx: bool = True, **kwargs):
         super().__init__()
@@ -1587,11 +1539,7 @@ class ParaformerSANMDecoderExport(torch.nn.Module):
             return x, hidden, ys_in_lens
         return hidden, ys_in_lens
 
-###############
-############### Paraformer model area
-###############
-
-############### Export Paraformer class
+# Modified from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/export_meta.py#L11 (MIT License)
 def export_rebuild_model(model, **kwargs):
     model.device = kwargs.get("device")
     is_onnx = kwargs.get("type", "onnx") == "onnx"
@@ -1661,7 +1609,7 @@ def export_name(
 ):
     return "model"
 
-############### CifPredictorV2 main class
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/cif_predictor.py#L173 (MIT License)
 class CifPredictorV2(torch.nn.Module):
     def __init__(
         self,
@@ -1691,6 +1639,7 @@ class CifPredictorV2(torch.nn.Module):
         self.tf2torch_tensor_name_prefix_tf = tf2torch_tensor_name_prefix_tf
         self.tail_mask = tail_mask
 
+# Copied from https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/cif_predictor.py#L431 (MIT License)
 class CifPredictorV2Export(torch.nn.Module):
     def __init__(self, model, **kwargs):
         super().__init__()
@@ -1815,7 +1764,7 @@ def cif_v1_export(hidden, alphas, threshold: float):
     frame_fires[frame_fires_idxs] = frames
     return frame_fires, fires
 
-############### Paraformer main class
+# https://github.com/modelscope/FunASR/blob/main/funasr/models/paraformer/model.py#L30 (MIT License)
 class Paraformer(torch.nn.Module):
     """
     Author: Speech Lab of DAMO Academy, Alibaba Group
@@ -2101,9 +2050,6 @@ def export_utils(
 
     return export_dir, model_jit_scripts
 
-########################################
-####### API for main program
-########################################
 def download_model(**kwargs):
     kwargs = download_from_hf(**kwargs)
     return kwargs
